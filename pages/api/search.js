@@ -1,29 +1,16 @@
-// =============================================
-// API: /api/search — Busca manual no PNCP
-// =============================================
+import { supabase } from "../../lib/supabase";
+import { buscarPNCP } from "../../lib/pncp";
 
-var { supabase } = require("../../lib/supabase");
-var { buscarPNCP } = require("../../lib/pncp");
-
-module.exports = async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ erro: "Use POST" });
-  }
+export default async function handler(req, res) {
+  if (req.method !== "POST") return res.status(405).json({ erro: "Use POST" });
 
   try {
-    // Busca configurações
     var configRes = await supabase.from("configuracoes").select("*").eq("id", 1).single();
     var config = configRes.data || {};
     var keywords = (config.keywords || "").split(",").map(function(k) { return k.trim(); }).filter(function(k) { return k; });
 
-    // Busca no PNCP (server-side, sem CORS!)
-    var resultado = await buscarPNCP({
-      dias: config.dias_busca || 15,
-      keywords: keywords,
-      modalidade: config.modalidade || 6,
-    });
+    var resultado = await buscarPNCP({ dias: config.dias_busca || 15, keywords: keywords, modalidade: config.modalidade || 6 });
 
-    // Salva novos no banco
     var novos = 0;
     for (var i = 0; i < resultado.resultados.length; i++) {
       var r = resultado.resultados[i];
@@ -40,21 +27,10 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    // Log
-    await supabase.from("buscas_log").insert({
-      total_analisados: resultado.totalAnalisados,
-      total_encontrados: resultado.totalEncontrados,
-      total_novos: novos,
-      keywords_usadas: keywords.join(", "),
-      status: "sucesso",
-    });
+    await supabase.from("buscas_log").insert({ total_analisados: resultado.totalAnalisados, total_encontrados: resultado.totalEncontrados, total_novos: novos, keywords_usadas: keywords.join(", "), status: "sucesso" });
 
-    return res.status(200).json({
-      sucesso: true, analisados: resultado.totalAnalisados,
-      encontrados: resultado.totalEncontrados, novos: novos,
-    });
-
+    return res.status(200).json({ sucesso: true, analisados: resultado.totalAnalisados, encontrados: resultado.totalEncontrados, novos: novos });
   } catch (err) {
     return res.status(500).json({ erro: err.message });
   }
-};
+}
