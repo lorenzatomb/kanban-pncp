@@ -4,7 +4,6 @@ import { scoreLead } from "../../lib/scoring";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ erro: "Use POST" });
-
   try {
     var perfilRes = await supabase.from("perfil_empresa").select("*").eq("id", 1).single();
     var perfil = perfilRes.data || {};
@@ -13,18 +12,21 @@ export default async function handler(req, res) {
 
     var resultado = await buscarPNCP({ dias: config.dias_busca || 15, modalidade: config.modalidade || 6 });
 
-    var novos = 0;
-    var qualificados = 0;
+    // Busca todos os pncp_ids existentes de uma vez
+    var existRes = await supabase.from("oportunidades").select("pncp_id");
+    var existentes = {};
+    (existRes.data || []).forEach(function(r) { existentes[r.pncp_id] = true; });
 
+    // Filtra, aplica score e monta batch de inserção
+    var batch = [];
+    var qualificados = 0;
     for (var i = 0; i < resultado.resultados.length; i++) {
       var r = resultado.resultados[i];
-      var existe = await supabase.from("oportunidades").select("id").eq("pncp_id", r.pncp_id).single();
-      if (existe.data) continue;
-
+      if (!r.pncp_id || existentes[r.pncp_id]) continue;
       var lead = scoreLead(perfil, r);
       if (lead.classificacao === "DESCARTADA") continue;
-
-      await supabase.from("oportunidades").insert({
+      qualificados++;
+      batch.push({
         pncp_id: r.pncp_id, objeto: r.objeto, orgao: r.orgao, uf: r.uf,
         valor_estimado: r.valor_estimado, modalidade: r.modalidade,
         link_edital: r.link_edital, data_publicacao: r.data_publicacao,
@@ -35,8 +37,12 @@ export default async function handler(req, res) {
         score: lead.score, classificacao: lead.classificacao, motivos: lead.motivos,
         fonte: "PNCP", source_id: r.pncp_id,
       });
-      novos++;
-      qualificados++;
+    }
+
+    // Insere tudo de uma vez
+    var novos = batch.length;
+    if (batch.length > 0) {
+      await supabase.from("oportunidades").upsert(batch, { onConflict: "pncp_id", ignoreDuplicates: true });
     }
 
     await supabase.from("buscas_log").insert({ total_analisados: resultado.totalAnalisados, total_encontrados: qualificados, total_novos: novos, keywords_usadas: "scoring v2", status: "sucesso" });
