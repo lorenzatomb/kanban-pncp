@@ -13,15 +13,20 @@ export default async function handler(req, res) {
     var perfil = perfilRes.data || {};
     var configRes = await supabase.from("configuracoes").select("*").eq("id", 1).single();
     var config = configRes.data || {};
+
     var resultado = await buscarPNCP({ dias: config.dias_busca || 15, modalidade: config.modalidade || 6 });
-    var novos = 0;
+
+    var existRes = await supabase.from("oportunidades").select("pncp_id");
+    var existentes = {};
+    (existRes.data || []).forEach(function(r) { existentes[r.pncp_id] = true; });
+
+    var batch = [];
     for (var i = 0; i < resultado.resultados.length; i++) {
       var r = resultado.resultados[i];
-      var existe = await supabase.from("oportunidades").select("id").eq("pncp_id", r.pncp_id).single();
-      if (existe.data) continue;
+      if (!r.pncp_id || existentes[r.pncp_id]) continue;
       var lead = scoreLead(perfil, r);
       if (lead.classificacao === "DESCARTADA") continue;
-      await supabase.from("oportunidades").insert({
+      batch.push({
         pncp_id: r.pncp_id, objeto: r.objeto, orgao: r.orgao, uf: r.uf,
         valor_estimado: r.valor_estimado, modalidade: r.modalidade,
         link_edital: r.link_edital, data_publicacao: r.data_publicacao,
@@ -32,10 +37,15 @@ export default async function handler(req, res) {
         score: lead.score, classificacao: lead.classificacao, motivos: lead.motivos,
         fonte: "PNCP", source_id: r.pncp_id,
       });
-      novos++;
     }
-    await supabase.from("buscas_log").insert({ total_analisados: resultado.totalAnalisados, total_encontrados: novos, total_novos: novos, keywords_usadas: "cron scoring v2", status: "sucesso" });
-    return res.status(200).json({ sucesso: true, analisados: resultado.totalAnalisados, novos: novos, horario: new Date().toISOString() });
+
+    if (batch.length > 0) {
+      await supabase.from("oportunidades").upsert(batch, { onConflict: "pncp_id", ignoreDuplicates: true });
+    }
+
+    await supabase.from("buscas_log").insert({ total_analisados: resultado.totalAnalisados, total_encontrados: batch.length, total_novos: batch.length, keywords_usadas: "cron scoring v2", status: "sucesso" });
+
+    return res.status(200).json({ sucesso: true, analisados: resultado.totalAnalisados, novos: batch.length, horario: new Date().toISOString() });
   } catch (err) {
     return res.status(500).json({ erro: err.message });
   }
