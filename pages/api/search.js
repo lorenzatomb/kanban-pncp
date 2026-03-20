@@ -12,26 +12,26 @@ export default async function handler(req, res) {
 
     var resultado = await buscarPNCP({ dias: config.dias_busca || 15, modalidade: config.modalidade || 6 });
 
-    // Busca todos os pncp_ids existentes de uma vez
     var existRes = await supabase.from("oportunidades").select("pncp_id");
     var existentes = {};
     (existRes.data || []).forEach(function(r) { existentes[r.pncp_id] = true; });
 
-    // Filtra, aplica score e monta batch de inserção
     var batch = [];
     var qualificados = 0;
     for (var i = 0; i < resultado.resultados.length; i++) {
       var r = resultado.resultados[i];
       if (!r.pncp_id || existentes[r.pncp_id]) continue;
+
       var lead = scoreLead(perfil, r);
       if (lead.classificacao === "DESCARTADA") continue;
       qualificados++;
       batch.push({
-        pncp_id: r.pncp_id, objeto: r.objeto, orgao: r.orgao, uf: r.uf,
+        pncp_id: r.pncp_id, objeto: r.objeto, complemento: r.complemento || null,
+        orgao: r.orgao, uf: r.uf, municipio: r.municipio || null, esfera: r.esfera || null,
         valor_estimado: r.valor_estimado, modalidade: r.modalidade,
         link_edital: r.link_edital, data_publicacao: r.data_publicacao,
         data_encerramento: r.data_encerramento,
-        keyword_match: lead.motivos.filter(function(m) { return m.tipo === "POSITIVA"; }).map(function(m) { return m.termo; }).join(", "),
+        keyword_match: lead.motivos.filter(function(m) { return m.tipo === "POSITIVA_OBJ" || m.tipo === "POSITIVA_COMP"; }).map(function(m) { return m.termo; }).join(", "),
         prioridade: lead.classificacao === "ALTA" ? "alta" : lead.classificacao === "MEDIA" ? "média" : "baixa",
         coluna: "oportunidades-online", ai_modelo: "claude",
         score: lead.score, classificacao: lead.classificacao, motivos: lead.motivos,
@@ -39,15 +39,13 @@ export default async function handler(req, res) {
       });
     }
 
-    // Insere tudo de uma vez
-    var novos = batch.length;
     if (batch.length > 0) {
       await supabase.from("oportunidades").upsert(batch, { onConflict: "pncp_id", ignoreDuplicates: true });
     }
 
-    await supabase.from("buscas_log").insert({ total_analisados: resultado.totalAnalisados, total_encontrados: qualificados, total_novos: novos, keywords_usadas: "scoring v2", status: "sucesso" });
+    await supabase.from("buscas_log").insert({ total_analisados: resultado.totalAnalisados, total_encontrados: qualificados, total_novos: batch.length, keywords_usadas: "scoring v3", status: "sucesso" });
 
-    return res.status(200).json({ sucesso: true, analisados: resultado.totalAnalisados, qualificados: qualificados, novos: novos });
+    return res.status(200).json({ sucesso: true, analisados: resultado.totalAnalisados, qualificados: qualificados, novos: batch.length });
   } catch (err) {
     return res.status(500).json({ erro: err.message });
   }
