@@ -67,7 +67,6 @@ export default function App() {
     sAT(""); sAO(""); sAU("DF"); sAV(""); sA(null);
   }
   function drop(col) { if (drag) move(drag, col); sd(null); so(null); }
-
   var selCard = sel ? cards.find(function (c) { return c.id === sel; }) : null;
 
   return (
@@ -87,7 +86,7 @@ export default function App() {
 
       {/* MAIN */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
-        {/* TOP */}
+        {/* TOP BAR */}
         <div style={{ borderBottom: "1px solid #1e1e26", flexShrink: 0 }}>
           <div style={{ height: 56, display: "flex", alignItems: "center", padding: "0 24px", gap: 16 }}>
             <span style={{ fontSize: 16, fontWeight: 700, color: "#fafafa", letterSpacing: "-0.02em" }}>Pipeline Licitações</span>
@@ -97,12 +96,22 @@ export default function App() {
               {searching ? "Buscando..." : "Buscar PNCP"}
             </button>
           </div>
-          {stats && <div style={{ display: "flex", gap: 12, padding: "0 24px 14px", flexWrap: "wrap" }}>
-            <Pill label="Total" value={stats.total} />
-            <Pill label="Pipeline" value={fc(stats.valor_pipeline)} c="#818cf8" />
-            <Pill label="Ganho" value={fc(stats.valor_ganho)} c="#34d399" />
-            {stats.por_classificacao && Object.keys(stats.por_classificacao).map(function (k) { return <Pill key={k} label={k} value={stats.por_classificacao[k]} c={CLS_C[k] || "#71717a"} />; })}
-          </div>}
+
+          {/* STATS + GAUGES ROW */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 24px 14px", overflowX: "auto" }}>
+            {stats && <>
+              <Pill label="Total" value={stats.total} />
+              <Pill label="Pipeline" value={fc(stats.valor_pipeline)} c="#818cf8" />
+              <Pill label="Ganho" value={fc(stats.valor_ganho)} c="#34d399" />
+              {stats.por_classificacao && Object.keys(stats.por_classificacao).map(function (k) { return <Pill key={k} label={k} value={stats.por_classificacao[k]} c={CLS_C[k] || "#71717a"} />; })}
+            </>}
+            {credits && <>
+              <div style={{ width: 1, height: 24, background: "#1e1e26", flexShrink: 0, marginLeft: 4, marginRight: 4 }} />
+              <MiniGauge label="Banco" pct={credits.supabase.rows_limite > 0 ? Math.round(credits.supabase.rows_usadas / credits.supabase.rows_limite * 100) : 0} detail={credits.supabase.rows_usadas + " / " + credits.supabase.rows_limite.toLocaleString("pt-BR")} />
+              <MiniGauge label="Vercel" pct={credits.vercel.invocacoes_limite > 0 ? Math.round(credits.vercel.invocacoes_estimadas / credits.vercel.invocacoes_limite * 100) : 0} detail={credits.vercel.invocacoes_estimadas + " / " + credits.vercel.invocacoes_limite.toLocaleString("pt-BR")} />
+              <MiniGauge label="PNCP hoje" pct={credits.pncp.limite_recomendado_dia > 0 ? Math.round(credits.pncp.editais_analisados_hoje / credits.pncp.limite_recomendado_dia * 100) : 0} detail={credits.pncp.editais_analisados_hoje + " / " + credits.pncp.limite_recomendado_dia.toLocaleString("pt-BR")} />
+            </>}
+          </div>
         </div>
 
         {/* BANNER */}
@@ -198,18 +207,16 @@ export default function App() {
               <BigN label="Valor ganho" value={fc(stats.valor_ganho)} c="#34d399" />
               <BigN label="Última busca" value={stats.ultimas_buscas && stats.ultimas_buscas[0] ? fdt(stats.ultimas_buscas[0].data_busca) : "—"} c="#8a8a9a" />
             </div>
-
-            {/* ====== GAUGES DE CRÉDITOS ====== */}
+            {/* GAUGES GRANDES */}
             {credits && <div style={{ background: "#14141a", borderRadius: 12, border: "1px solid #1e1e26", padding: 20 }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: "#5a5a66", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Consumo de recursos</div>
               <div style={{ fontSize: 10, color: "#3a3a44", marginBottom: 18 }}>Plano: <span style={{ color: "#818cf8", fontWeight: 600 }}>{credits.plano}</span></div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
-                <Gauge label="Banco (Supabase)" used={credits.supabase.rows_usadas} total={credits.supabase.rows_limite} unit="rows" detail={"Oport: " + credits.supabase.oportunidades + " · Msg: " + credits.supabase.mensagens + " · Logs: " + credits.supabase.buscas_log} />
-                <Gauge label="Servidor (Vercel)" used={credits.vercel.invocacoes_estimadas} total={credits.vercel.invocacoes_limite} unit="invocações" detail="Estimativa baseada em buscas realizadas" />
-                <Gauge label="API PNCP (hoje)" used={credits.pncp.editais_analisados_hoje} total={credits.pncp.limite_recomendado_dia} unit="editais" detail={credits.pncp.chamadas_hoje + " buscas realizadas hoje"} />
+                <BigGauge label="Banco (Supabase)" used={credits.supabase.rows_usadas} total={credits.supabase.rows_limite} unit="rows" detail={"Oport: " + credits.supabase.oportunidades + " · Msg: " + credits.supabase.mensagens + " · Logs: " + credits.supabase.buscas_log} />
+                <BigGauge label="Servidor (Vercel)" used={credits.vercel.invocacoes_estimadas} total={credits.vercel.invocacoes_limite} unit="invocações" detail="Estimativa baseada em buscas" />
+                <BigGauge label="API PNCP (hoje)" used={credits.pncp.editais_analisados_hoje} total={credits.pncp.limite_recomendado_dia} unit="editais" detail={credits.pncp.chamadas_hoje + " buscas hoje"} />
               </div>
             </div>}
-
             {/* POR CLASSIFICAÇÃO */}
             <div style={{ background: "#14141a", borderRadius: 12, border: "1px solid #1e1e26", padding: 20 }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: "#5a5a66", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>Por classificação</div>
@@ -220,14 +227,11 @@ export default function App() {
                   return <div key={k} style={{ flex: 1, background: "#111116", borderRadius: 10, padding: 16, border: "1px solid #1e1e26" }}>
                     <div style={{ fontSize: 24, fontWeight: 700, color: CLS_C[k], fontFamily: "'JetBrains Mono',monospace" }}>{v}</div>
                     <div style={{ fontSize: 10, color: "#5a5a66", marginTop: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>{k}</div>
-                    <div style={{ marginTop: 8, height: 4, background: "#1e1e26", borderRadius: 3, overflow: "hidden" }}>
-                      <div style={{ width: Math.round(v / total * 100) + "%", height: "100%", background: CLS_C[k], borderRadius: 3 }} />
-                    </div>
+                    <div style={{ marginTop: 8, height: 4, background: "#1e1e26", borderRadius: 3, overflow: "hidden" }}><div style={{ width: Math.round(v / total * 100) + "%", height: "100%", background: CLS_C[k], borderRadius: 3 }} /></div>
                   </div>;
                 })}
               </div>
             </div>
-            {/* POR UF */}
             {stats.por_uf && <div style={{ background: "#14141a", borderRadius: 12, border: "1px solid #1e1e26", padding: 20 }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: "#5a5a66", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>Por estado</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -239,7 +243,6 @@ export default function App() {
                 })}
               </div>
             </div>}
-            {/* ÚLTIMAS BUSCAS */}
             {stats.ultimas_buscas && stats.ultimas_buscas.length > 0 && <div style={{ background: "#14141a", borderRadius: 12, border: "1px solid #1e1e26", padding: 20 }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: "#5a5a66", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>Últimas buscas</div>
               {stats.ultimas_buscas.map(function (b, i) {
@@ -312,8 +315,20 @@ export default function App() {
   );
 }
 
-/* ====== GAUGE COMPONENT ====== */
-function Gauge(p) {
+/* MINI GAUGE — barra horizontal compacta para o topbar */
+function MiniGauge(p) {
+  var color = p.pct >= 90 ? "#ef4444" : p.pct >= 70 ? "#f59e0b" : "#10b981";
+  return <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 8, background: "#14141a", border: "1px solid #1e1e26", minWidth: 130 }} title={p.detail}>
+    <span style={{ fontSize: 9, color: "#5a5a66", whiteSpace: "nowrap" }}>{p.label}</span>
+    <div style={{ flex: 1, height: 4, background: "#1e1e26", borderRadius: 3, overflow: "hidden", minWidth: 30 }}>
+      <div style={{ width: Math.min(100, p.pct) + "%", height: "100%", background: color, borderRadius: 3, transition: "width .5s" }} />
+    </div>
+    <span style={{ fontSize: 9, fontWeight: 700, color: color, fontFamily: "'JetBrains Mono',monospace", minWidth: 24, textAlign: "right" }}>{p.pct}%</span>
+  </div>;
+}
+
+/* BIG GAUGE — semicircular SVG para a aba stats */
+function BigGauge(p) {
   var pct = p.total > 0 ? Math.min(100, Math.round(p.used / p.total * 100)) : 0;
   var color = pct >= 90 ? "#ef4444" : pct >= 70 ? "#f59e0b" : "#10b981";
   var r = 40;
