@@ -16,7 +16,7 @@ var CLS_C = { ALTA: "#10b981", MEDIA: "#f59e0b", BAIXA: "#6b7280", DESCARTADA: "
 function fc(v) { if (!v && v !== 0) return "—"; return "R$ " + Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 }); }
 function fd(s) { if (!s) return "—"; try { return new Date(s).toLocaleDateString("pt-BR"); } catch (e) { return "—"; } }
 function fdt(s) { if (!s) return ""; try { return new Date(s).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }); } catch (e) { return ""; } }
-function dl(s) { if (!s) return null; return Math.ceil((new Date(s) - new Date()) / 86400000); }
+function dLeft(s) { if (!s) return null; return Math.ceil((new Date(s) - new Date()) / 86400000); }
 
 export default function App() {
   var [cards, sc] = useState([]);
@@ -33,18 +33,12 @@ export default function App() {
   var [aU, sAU] = useState("DF");
   var [aVal, sAV] = useState("");
   var [stats, sSt] = useState(null);
+  var [credits, sCr] = useState(null);
 
   var loadAll = useCallback(async function () {
-    try {
-      var r = await fetch(API + "/api/oportunidades");
-      var d = await r.json();
-      if (Array.isArray(d)) sc(d);
-    } catch (e) { }
-    try {
-      var r2 = await fetch(API + "/api/stats");
-      var d2 = await r2.json();
-      if (d2 && d2.total !== undefined) sSt(d2);
-    } catch (e) { }
+    try { var r = await fetch(API + "/api/oportunidades"); var d = await r.json(); if (Array.isArray(d)) sc(d); } catch (e) { }
+    try { var r2 = await fetch(API + "/api/stats"); var d2 = await r2.json(); if (d2 && d2.total !== undefined) sSt(d2); } catch (e) { }
+    try { var r3 = await fetch(API + "/api/credits"); var d3 = await r3.json(); if (d3 && d3.plano) sCr(d3); } catch (e) { }
     sl(false);
   }, []);
 
@@ -79,7 +73,7 @@ export default function App() {
   return (
     <div style={{ display: "flex", height: "100vh", fontFamily: "'DM Sans',system-ui,sans-serif", background: "#0c0c10", color: "#e4e4e7", overflow: "hidden" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-      <style>{"@keyframes spin{to{transform:rotate(360deg)}} @keyframes fadeIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}} @keyframes slideIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}} *::-webkit-scrollbar{width:4px} *::-webkit-scrollbar-track{background:transparent} *::-webkit-scrollbar-thumb{background:#27272a;border-radius:4px} .hov:hover{background:#1f1f26!important;border-color:#3f3f46!important}"}</style>
+      <style>{"@keyframes spin{to{transform:rotate(360deg)}} @keyframes fadeIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}} @keyframes slideIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}} *::-webkit-scrollbar{width:4px} *::-webkit-scrollbar-track{background:transparent} *::-webkit-scrollbar-thumb{background:#27272a;border-radius:4px} .hov:hover{background:#1f1f26!important;border-color:#2a2a36!important}"}</style>
 
       {/* SIDEBAR */}
       <div style={{ width: 60, background: "#14141a", borderRight: "1px solid #1e1e26", display: "flex", flexDirection: "column", alignItems: "center", padding: "16px 0", gap: 6, flexShrink: 0 }}>
@@ -100,11 +94,9 @@ export default function App() {
             <div style={{ flex: 1 }} />
             <button onClick={search} disabled={searching} style={{ padding: "7px 18px", borderRadius: 8, border: "1px solid " + (searching ? "#1e1e26" : "#6366f1"), background: searching ? "transparent" : "#6366f115", color: searching ? "#52525b" : "#818cf8", fontSize: 12, fontWeight: 600, cursor: searching ? "default" : "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6 }}>
               {searching && <div style={{ width: 12, height: 12, border: "2px solid #27272a", borderTop: "2px solid #6366f1", borderRadius: "50%", animation: "spin .8s linear infinite" }} />}
-              {searching ? "Buscando 12 estados..." : "Buscar PNCP agora"}
+              {searching ? "Buscando..." : "Buscar PNCP"}
             </button>
           </div>
-
-          {/* STATS ROW */}
           {stats && <div style={{ display: "flex", gap: 12, padding: "0 24px 14px", flexWrap: "wrap" }}>
             <Pill label="Total" value={stats.total} />
             <Pill label="Pipeline" value={fc(stats.valor_pipeline)} c="#818cf8" />
@@ -121,7 +113,6 @@ export default function App() {
           <button onClick={function () { sSRes(null); }} style={{ background: "none", border: "none", color: "#52525b", cursor: "pointer", fontSize: 16 }}>✕</button>
         </div>}
 
-        {/* LOADING */}
         {load && <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ width: 28, height: 28, border: "3px solid #1e1e26", borderTop: "3px solid #6366f1", borderRadius: "50%", animation: "spin .8s linear infinite" }} /></div>}
 
         {/* ============ BOARD ============ */}
@@ -138,8 +129,6 @@ export default function App() {
                 <button onClick={function () { sA(showAdd === col.id ? null : col.id); }} style={{ width: 22, height: 22, borderRadius: 6, border: "1px solid #1e1e26", background: "transparent", color: "#5a5a66", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, flexShrink: 0 }}>+</button>
               </div>
               {tot > 0 && <div style={{ padding: "0 14px 8px", fontSize: 10, color: "#3a3a44", fontFamily: "'JetBrains Mono',monospace" }}>{fc(tot)}</div>}
-
-              {/* ADD */}
               {showAdd === col.id && <div style={{ margin: "0 10px 8px", padding: 12, background: "#161620", borderRadius: 10, border: "1px solid #2a2a36", display: "flex", flexDirection: "column", gap: 6, animation: "fadeIn .2s" }}>
                 <input value={aT} onChange={function (e) { sAT(e.target.value); }} placeholder="Objeto..." style={inp()} />
                 <input value={aO} onChange={function (e) { sAO(e.target.value); }} placeholder="Órgão" style={inp()} />
@@ -149,29 +138,24 @@ export default function App() {
                 </div>
                 <button onClick={function () { addCard(col.id); }} style={{ padding: "7px", borderRadius: 7, border: "none", background: "#6366f1", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Adicionar</button>
               </div>}
-
-              {/* CARDS */}
               <div style={{ flex: 1, padding: "0 10px 10px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
                 {cc.map(function (card) {
-                  var d = dl(card.data_encerramento);
+                  var d = dLeft(card.data_encerramento);
                   var urg = d !== null && d >= 0 && d <= 3;
                   var exp = d !== null && d < 0;
                   return <div key={card.id} className="hov" draggable onDragStart={function () { sd(card.id); }} onClick={function () { ss(sel === card.id ? null : card.id); }} style={{ background: sel === card.id ? "#1a1a28" : "#14141a", border: "1px solid " + (sel === card.id ? "#6366f1" : urg ? "#ef444450" : "#1e1e26"), borderRadius: 10, padding: "11px 12px", cursor: "grab", transition: "all .12s", opacity: drag === card.id ? 0.35 : exp ? 0.45 : 1 }}>
-                    {/* SCORE BAR */}
                     {card.score > 0 && <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-                      <div style={{ flex: 1, height: 3, background: "#1e1e26", borderRadius: 3, overflow: "hidden" }}>
-                        <div style={{ width: Math.min(100, card.score) + "%", height: "100%", background: card.score >= 70 ? "#10b981" : card.score >= 50 ? "#f59e0b" : "#6b7280", borderRadius: 3 }} />
-                      </div>
+                      <div style={{ flex: 1, height: 3, background: "#1e1e26", borderRadius: 3, overflow: "hidden" }}><div style={{ width: Math.min(100, card.score) + "%", height: "100%", background: card.score >= 70 ? "#10b981" : card.score >= 50 ? "#f59e0b" : "#6b7280", borderRadius: 3 }} /></div>
                       <span style={{ fontSize: 9, fontWeight: 700, color: card.score >= 70 ? "#10b981" : card.score >= 50 ? "#f59e0b" : "#6b7280", fontFamily: "'JetBrains Mono',monospace", minWidth: 20, textAlign: "right" }}>{card.score}</span>
                     </div>}
                     <div style={{ fontSize: 11, fontWeight: 600, color: "#eaeaef", lineHeight: 1.45, marginBottom: 6, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{card.objeto || "Sem título"}</div>
                     {card.orgao && <div style={{ fontSize: 9, color: "#4a4a56", marginBottom: 6, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{card.orgao}</div>}
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 3, alignItems: "center" }}>
-                      {card.uf && <T t={card.uf} bg="#3b82f618" c="#60a5fa" />}
-                      {card.classificacao && <T t={card.classificacao} bg={(CLS_C[card.classificacao] || "#6b7280") + "18"} c={CLS_C[card.classificacao] || "#6b7280"} />}
-                      {card.keyword_match && <T t={card.keyword_match.split(",")[0]} bg="#6366f118" c="#818cf8" />}
-                      {d !== null && d >= 0 && <T t={d === 0 ? "Hoje!" : d + "d"} bg={urg ? "#ef444418" : "#f59e0b18"} c={urg ? "#ef4444" : "#fbbf24"} />}
-                      {exp && <T t="Enc." bg="#ef444418" c="#ef4444" />}
+                      {card.uf && <Tag t={card.uf} bg="#3b82f618" c="#60a5fa" />}
+                      {card.classificacao && <Tag t={card.classificacao} bg={(CLS_C[card.classificacao] || "#6b7280") + "18"} c={CLS_C[card.classificacao] || "#6b7280"} />}
+                      {card.keyword_match && <Tag t={card.keyword_match.split(",")[0]} bg="#6366f118" c="#818cf8" />}
+                      {d !== null && d >= 0 && <Tag t={d === 0 ? "Hoje!" : d + "d"} bg={urg ? "#ef444418" : "#f59e0b18"} c={urg ? "#ef4444" : "#fbbf24"} />}
+                      {exp && <Tag t="Enc." bg="#ef444418" c="#ef4444" />}
                       {card.valor_estimado ? <span style={{ fontSize: 8, color: "#3a3a44", marginLeft: "auto", fontFamily: "'JetBrains Mono',monospace" }}>{fc(card.valor_estimado)}</span> : null}
                     </div>
                   </div>;
@@ -195,10 +179,10 @@ export default function App() {
                 <td style={{ padding: "12px" }}><div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 32, height: 4, background: "#1e1e26", borderRadius: 3, overflow: "hidden" }}><div style={{ width: Math.min(100, c.score || 0) + "%", height: "100%", background: (c.score || 0) >= 70 ? "#10b981" : (c.score || 0) >= 50 ? "#f59e0b" : "#6b7280", borderRadius: 3 }} /></div><span style={{ fontSize: 11, fontWeight: 700, color: (c.score || 0) >= 70 ? "#10b981" : (c.score || 0) >= 50 ? "#f59e0b" : "#6b7280", fontFamily: "'JetBrains Mono',monospace" }}>{c.score || 0}</span></div></td>
                 <td style={{ padding: "12px", maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#eaeaef", fontWeight: 500 }}>{(c.objeto || "").substring(0, 70)}</td>
                 <td style={{ padding: "12px", color: "#5a5a66", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{(c.orgao || "").substring(0, 35)}</td>
-                <td style={{ padding: "12px" }}><T t={c.uf || "—"} bg="#3b82f618" c="#60a5fa" /></td>
+                <td style={{ padding: "12px" }}><Tag t={c.uf || "—"} bg="#3b82f618" c="#60a5fa" /></td>
                 <td style={{ padding: "12px", fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "#8a8a9a" }}>{fc(c.valor_estimado)}</td>
-                <td style={{ padding: "12px" }}>{col && <T t={col.t} bg={col.c + "18"} c={col.c} />}</td>
-                <td style={{ padding: "12px" }}>{c.classificacao && <T t={c.classificacao} bg={(CLS_C[c.classificacao] || "#6b7280") + "18"} c={CLS_C[c.classificacao] || "#6b7280"} />}</td>
+                <td style={{ padding: "12px" }}>{col && <Tag t={col.t} bg={col.c + "18"} c={col.c} />}</td>
+                <td style={{ padding: "12px" }}>{c.classificacao && <Tag t={c.classificacao} bg={(CLS_C[c.classificacao] || "#6b7280") + "18"} c={CLS_C[c.classificacao] || "#6b7280"} />}</td>
                 <td style={{ padding: "12px", fontSize: 11, color: "#5a5a66", fontFamily: "'JetBrains Mono',monospace" }}>{fd(c.data_encerramento)}</td>
               </tr>;
             })}</tbody>
@@ -208,13 +192,24 @@ export default function App() {
         {/* ============ STATS ============ */}
         {!load && view === "stats" && <div style={{ flex: 1, overflowY: "auto", padding: "24px" }}>
           {stats ? <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            {/* BIG NUMBERS */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
               <BigN label="Total oportunidades" value={stats.total} c="#818cf8" />
               <BigN label="Valor pipeline" value={fc(stats.valor_pipeline)} c="#818cf8" />
               <BigN label="Valor ganho" value={fc(stats.valor_ganho)} c="#34d399" />
               <BigN label="Última busca" value={stats.ultimas_buscas && stats.ultimas_buscas[0] ? fdt(stats.ultimas_buscas[0].data_busca) : "—"} c="#8a8a9a" />
             </div>
+
+            {/* ====== GAUGES DE CRÉDITOS ====== */}
+            {credits && <div style={{ background: "#14141a", borderRadius: 12, border: "1px solid #1e1e26", padding: 20 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#5a5a66", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Consumo de recursos</div>
+              <div style={{ fontSize: 10, color: "#3a3a44", marginBottom: 18 }}>Plano: <span style={{ color: "#818cf8", fontWeight: 600 }}>{credits.plano}</span></div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
+                <Gauge label="Banco (Supabase)" used={credits.supabase.rows_usadas} total={credits.supabase.rows_limite} unit="rows" detail={"Oport: " + credits.supabase.oportunidades + " · Msg: " + credits.supabase.mensagens + " · Logs: " + credits.supabase.buscas_log} />
+                <Gauge label="Servidor (Vercel)" used={credits.vercel.invocacoes_estimadas} total={credits.vercel.invocacoes_limite} unit="invocações" detail="Estimativa baseada em buscas realizadas" />
+                <Gauge label="API PNCP (hoje)" used={credits.pncp.editais_analisados_hoje} total={credits.pncp.limite_recomendado_dia} unit="editais" detail={credits.pncp.chamadas_hoje + " buscas realizadas hoje"} />
+              </div>
+            </div>}
+
             {/* POR CLASSIFICAÇÃO */}
             <div style={{ background: "#14141a", borderRadius: 12, border: "1px solid #1e1e26", padding: 20 }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: "#5a5a66", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>Por classificação</div>
@@ -250,7 +245,7 @@ export default function App() {
               {stats.ultimas_buscas.map(function (b, i) {
                 return <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderBottom: i < stats.ultimas_buscas.length - 1 ? "1px solid #1a1a22" : "none" }}>
                   <span style={{ fontSize: 11, color: "#5a5a66", fontFamily: "'JetBrains Mono',monospace", minWidth: 100 }}>{fdt(b.data_busca)}</span>
-                  <T t={b.status || "ok"} bg="#10b98118" c="#34d399" />
+                  <Tag t={b.status || "ok"} bg="#10b98118" c="#34d399" />
                   <span style={{ fontSize: 11, color: "#8a8a9a" }}>{b.total_analisados} analisados</span>
                   <span style={{ fontSize: 11, color: "#34d399" }}>{b.total_novos} novos</span>
                 </div>;
@@ -264,7 +259,6 @@ export default function App() {
       {selCard && <div style={{ width: 400, background: "#14141a", borderLeft: "1px solid #1e1e26", display: "flex", flexDirection: "column", flexShrink: 0, animation: "slideIn .25s" }}>
         <div style={{ padding: "18px 20px", borderBottom: "1px solid #1e1e26", display: "flex", gap: 12 }}>
           <div style={{ flex: 1 }}>
-            {/* SCORE */}
             {selCard.score > 0 && <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
               <div style={{ width: 44, height: 44, borderRadius: 12, background: (selCard.score >= 70 ? "#10b981" : selCard.score >= 50 ? "#f59e0b" : "#6b7280") + "18", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <span style={{ fontSize: 18, fontWeight: 700, color: selCard.score >= 70 ? "#10b981" : selCard.score >= 50 ? "#f59e0b" : "#6b7280", fontFamily: "'JetBrains Mono',monospace" }}>{selCard.score}</span>
@@ -280,15 +274,12 @@ export default function App() {
           <button onClick={function () { ss(null); }} style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid #1e1e26", background: "transparent", color: "#5a5a66", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0, alignSelf: "flex-start" }}>✕</button>
         </div>
         <div style={{ flex: 1, overflowY: "auto", padding: "18px 20px" }}>
-          {/* MOVER */}
           <Sec t="Mover para"><div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
             {COLS.map(function (col) { var a = selCard.coluna === col.id; return <button key={col.id} onClick={function () { if (!a) move(selCard.id, col.id); }} style={{ padding: "5px 10px", borderRadius: 6, fontSize: 9, fontWeight: 600, border: "1px solid " + (a ? col.c : "#1e1e26"), background: a ? col.c + "18" : "transparent", color: a ? col.c : "#5a5a66", cursor: a ? "default" : "pointer", fontFamily: "inherit" }}>{col.t}</button>; })}
           </div></Sec>
-          {/* PRIORIDADE */}
           <Sec t="Prioridade"><div style={{ display: "flex", gap: 6 }}>
             {["alta", "média", "baixa"].map(function (p) { var a = selCard.prioridade === p; return <button key={p} onClick={function () { setPri(selCard.id, p); }} style={{ padding: "6px 16px", borderRadius: 6, fontSize: 11, fontWeight: 600, border: "1px solid " + (a ? PRI[p] : "#1e1e26"), background: a ? PRI[p] + "18" : "transparent", color: a ? PRI[p] : "#5a5a66", cursor: "pointer", fontFamily: "inherit", textTransform: "capitalize" }}>{p}</button>; })}
           </div></Sec>
-          {/* INFO */}
           <Sec t="Informações"><div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <IR l="UF" v={selCard.uf || "—"} />
             <IR l="Valor estimado" v={fc(selCard.valor_estimado) || "—"} m />
@@ -297,13 +288,12 @@ export default function App() {
             <IR l="Fonte" v={selCard.fonte || "PNCP"} />
             <IR l="PNCP ID" v={selCard.pncp_id || "—"} m />
             <IR l="Publicação" v={fd(selCard.data_publicacao)} />
-            <IR l="Encerramento" v={fd(selCard.data_encerramento)} h={dl(selCard.data_encerramento) !== null && dl(selCard.data_encerramento) <= 3 && dl(selCard.data_encerramento) >= 0} />
+            <IR l="Encerramento" v={fd(selCard.data_encerramento)} h={dLeft(selCard.data_encerramento) !== null && dLeft(selCard.data_encerramento) <= 3 && dLeft(selCard.data_encerramento) >= 0} />
             <IR l="Encontrada" v={fdt(selCard.data_encontrada)} />
           </div></Sec>
-          {/* MOTIVOS */}
           {selCard.motivos && selCard.motivos.length > 0 && <Sec t="Motivos do score"><div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {selCard.motivos.map(function (m, i) {
-              var icon = m.tipo === "POSITIVA" ? "+" : m.tipo === "UF_INTERESSE" ? "📍" : m.tipo === "TICKET" ? "💰" : "·";
+              var icon = m.tipo === "POSITIVA" ? "+" : m.tipo === "UF_INTERESSE" ? "•" : m.tipo === "TICKET" ? "$" : "·";
               var color = m.tipo === "POSITIVA" ? "#34d399" : m.tipo === "UF_INTERESSE" ? "#60a5fa" : m.tipo === "TICKET" ? "#fbbf24" : "#8a8a9a";
               return <div key={i} style={{ fontSize: 11, color: color, padding: "4px 8px", background: "#111116", borderRadius: 6 }}>
                 <span style={{ marginRight: 6 }}>{icon}</span>
@@ -311,11 +301,8 @@ export default function App() {
               </div>;
             })}
           </div></Sec>}
-          {/* LINK */}
           {selCard.link_edital && <Sec t="Edital"><a href={selCard.link_edital} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 16px", borderRadius: 8, border: "1px solid #1e1e26", color: "#818cf8", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>Abrir no sistema de origem ↗</a></Sec>}
-          {/* OBJETO COMPLETO */}
           <Sec t="Objeto completo"><div style={{ fontSize: 12, color: "#8a8a9a", lineHeight: 1.75, background: "#111116", padding: 14, borderRadius: 10, border: "1px solid #1e1e26" }}>{selCard.objeto}</div></Sec>
-          {/* ARQUIVAR */}
           <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid #1e1e26" }}>
             <button onClick={function () { archive(selCard.id); }} style={{ padding: "9px 18px", borderRadius: 8, border: "1px solid #ef444430", background: "#ef444410", color: "#f87171", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Arquivar oportunidade</button>
           </div>
@@ -325,7 +312,28 @@ export default function App() {
   );
 }
 
-function T(p) { return <span style={{ fontSize: 9, fontWeight: 600, padding: "2px 7px", borderRadius: 4, background: p.bg, color: p.c, whiteSpace: "nowrap" }}>{p.t}</span>; }
+/* ====== GAUGE COMPONENT ====== */
+function Gauge(p) {
+  var pct = p.total > 0 ? Math.min(100, Math.round(p.used / p.total * 100)) : 0;
+  var color = pct >= 90 ? "#ef4444" : pct >= 70 ? "#f59e0b" : "#10b981";
+  var r = 40;
+  var circ = 2 * Math.PI * r;
+  var arc = circ * 0.75;
+  var offset = arc - (arc * pct / 100);
+  return <div style={{ background: "#111116", borderRadius: 12, border: "1px solid #1e1e26", padding: "20px 16px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+    <svg width="100" height="80" viewBox="0 0 100 80">
+      <circle cx="50" cy="50" r={r} fill="none" stroke="#1e1e26" strokeWidth="6" strokeDasharray={arc + " " + circ} strokeDashoffset="0" strokeLinecap="round" transform="rotate(135 50 50)" />
+      <circle cx="50" cy="50" r={r} fill="none" stroke={color} strokeWidth="6" strokeDasharray={arc + " " + circ} strokeDashoffset={offset} strokeLinecap="round" transform="rotate(135 50 50)" style={{ transition: "stroke-dashoffset .8s ease" }} />
+      <text x="50" y="46" textAnchor="middle" fill={color} fontSize="18" fontWeight="700" fontFamily="'JetBrains Mono',monospace">{pct}%</text>
+      <text x="50" y="62" textAnchor="middle" fill="#5a5a66" fontSize="8" fontFamily="'DM Sans',sans-serif">{p.used.toLocaleString("pt-BR")} / {p.total.toLocaleString("pt-BR")}</text>
+    </svg>
+    <div style={{ fontSize: 11, fontWeight: 600, color: "#8a8a9a", marginTop: 4, textAlign: "center" }}>{p.label}</div>
+    <div style={{ fontSize: 9, color: "#3a3a44", marginTop: 2, textAlign: "center" }}>{p.unit}</div>
+    {p.detail && <div style={{ fontSize: 9, color: "#2a2a36", marginTop: 6, textAlign: "center", lineHeight: 1.5 }}>{p.detail}</div>}
+  </div>;
+}
+
+function Tag(p) { return <span style={{ fontSize: 9, fontWeight: 600, padding: "2px 7px", borderRadius: 4, background: p.bg, color: p.c, whiteSpace: "nowrap" }}>{p.t}</span>; }
 function Pill(p) { return <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 12px", borderRadius: 8, background: "#14141a", border: "1px solid #1e1e26" }}><span style={{ fontSize: 10, color: "#5a5a66" }}>{p.label}</span><span style={{ fontSize: 12, fontWeight: 600, color: p.c || "#8a8a9a", fontFamily: "'JetBrains Mono',monospace" }}>{p.value}</span></div>; }
 function BigN(p) { return <div style={{ background: "#111116", borderRadius: 12, border: "1px solid #1e1e26", padding: "18px 20px" }}><div style={{ fontSize: 22, fontWeight: 700, color: p.c || "#eaeaef", fontFamily: "'JetBrains Mono',monospace", lineHeight: 1 }}>{p.value}</div><div style={{ fontSize: 10, color: "#5a5a66", marginTop: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>{p.label}</div></div>; }
 function Sec(p) { return <div style={{ marginBottom: 20 }}><div style={{ fontSize: 10, fontWeight: 600, color: "#5a5a66", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>{p.t}</div>{p.children}</div>; }
