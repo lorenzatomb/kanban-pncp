@@ -16,12 +16,14 @@ export default function App(){
   var [stats,sSt]=useState(null);var [credits,sCr]=useState(null);var [perfil,sPf]=useState(null);
   var [pfLoading,sPfL]=useState(false);var [pfSaved,sPfS]=useState(false);
   var [newPos,sNP]=useState({termo:"",peso:3});var [newNeg,sNN]=useState({termo:"",peso:8,tipo:"forte"});
+  var [claudeCredits,sCC]=useState(null);var [analyzing,sAn]=useState(false);var [analysis,sAl]=useState(null);
 
   var loadAll=useCallback(async function(){
     try{var r=await fetch(API+"/api/oportunidades");var d=await r.json();if(Array.isArray(d))sc(d);}catch(e){}
     try{var r2=await fetch(API+"/api/stats");var d2=await r2.json();if(d2&&d2.total!==undefined)sSt(d2);}catch(e){}
     try{var r3=await fetch(API+"/api/credits");var d3=await r3.json();if(d3&&d3.plano)sCr(d3);}catch(e){}
     try{var r4=await fetch(API+"/api/perfil");var d4=await r4.json();if(d4&&d4.nome)sPf(d4);}catch(e){}
+    try{var r5=await fetch(API+"/api/claude-credits");var d5=await r5.json();if(d5)sCC(d5);}catch(e){}
     sl(false);
   },[]);
   useEffect(function(){loadAll();},[loadAll]);
@@ -38,6 +40,16 @@ export default function App(){
   function addPos(){if(!newPos.termo.trim())return;sPf(function(p){return Object.assign({},p,{positivas:(p.positivas||[]).concat({termo:newPos.termo.trim(),peso:Number(newPos.peso)||3})});});sNP({termo:"",peso:3});}
   function addNeg(){if(!newNeg.termo.trim())return;sPf(function(p){return Object.assign({},p,{negativas:(p.negativas||[]).concat({termo:newNeg.termo.trim(),peso:Number(newNeg.peso)||8,tipo:newNeg.tipo})});});sNN({termo:"",peso:8,tipo:"forte"});}
   function drop(col){if(drag)move(drag,col);sd(null);so(null);}
+  async function analyzeWithClaude(card){
+    sAn(true);sAl(null);
+    try{
+      var prompt="Analise esta licitação e dê um parecer em 3 parágrafos curtos: (1) Resumo do objeto, (2) Aderência para uma integradora audiovisual que trabalha com videowall, painel LED, salas de controle, videoconferência e CFTV, (3) Recomendação (participar ou não e por quê).\n\nObjeto: "+card.objeto+"\nÓrgão: "+card.orgao+"\nUF: "+card.uf+"\nValor estimado: "+(card.valor_estimado?fc(card.valor_estimado):"Não informado")+"\nModalidade: "+(card.modalidade||"Pregão Eletrônico");
+      var r=await fetch(API+"/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:prompt,oportunidade_id:card.id})});
+      var d=await r.json();
+      if(d.erro){sAl({erro:d.erro});}else{sAl(d);loadAll();}
+    }catch(e){sAl({erro:e.message});}
+    sAn(false);
+  }
   var selCard=sel?cards.find(function(c){return c.id===sel;}):null;
 
   return(
@@ -74,7 +86,8 @@ export default function App(){
             {credits&&<><div style={{width:1,height:24,background:"#1e1e26",flexShrink:0,margin:"0 4px"}}/>
             <MiniGauge label="Banco" pct={credits.supabase.rows_limite>0?Math.round(credits.supabase.rows_usadas/credits.supabase.rows_limite*100):0} detail={credits.supabase.rows_usadas+" / "+credits.supabase.rows_limite.toLocaleString("pt-BR")}/>
             <MiniGauge label="Vercel" pct={credits.vercel.invocacoes_limite>0?Math.round(credits.vercel.invocacoes_estimadas/credits.vercel.invocacoes_limite*100):0} detail={credits.vercel.invocacoes_estimadas+" / "+credits.vercel.invocacoes_limite.toLocaleString("pt-BR")}/>
-            <MiniGauge label="PNCP" pct={credits.pncp.limite_recomendado_dia>0?Math.round(credits.pncp.editais_analisados_hoje/credits.pncp.limite_recomendado_dia*100):0} detail={credits.pncp.editais_analisados_hoje+" / "+credits.pncp.limite_recomendado_dia.toLocaleString("pt-BR")}/></>}
+            <MiniGauge label="PNCP" pct={credits.pncp.limite_recomendado_dia>0?Math.round(credits.pncp.editais_analisados_hoje/credits.pncp.limite_recomendado_dia*100):0} detail={credits.pncp.editais_analisados_hoje+" / "+credits.pncp.limite_recomendado_dia.toLocaleString("pt-BR")}/>
+            {credits.claude&&<MiniGauge label="Claude" pct={credits.claude.pct_usado||0} detail={"USD "+credits.claude.gasto_mes_usd.toFixed(4)+" / "+credits.claude.limite_mes_usd}/>}</>}
           </div>}
         </div>
 
@@ -150,11 +163,30 @@ export default function App(){
           </div>
           {credits&&<div style={{background:"#14141a",borderRadius:12,border:"1px solid #1e1e26",padding:20}}>
             <div style={{fontSize:11,fontWeight:600,color:"#5a5a66",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:18}}>Consumo de recursos · Plano <span style={{color:"#818cf8"}}>{credits.plano}</span></div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:16}}>
               <BigGauge label="Banco (Supabase)" used={credits.supabase.rows_usadas} total={credits.supabase.rows_limite} unit="rows"/>
               <BigGauge label="Servidor (Vercel)" used={credits.vercel.invocacoes_estimadas} total={credits.vercel.invocacoes_limite} unit="invocações"/>
               <BigGauge label="API PNCP (hoje)" used={credits.pncp.editais_analisados_hoje} total={credits.pncp.limite_recomendado_dia} unit="editais"/>
+              {credits.claude&&<BigGauge label="Claude (mês)" used={Math.round(credits.claude.gasto_mes_usd*10000)/10000} total={credits.claude.limite_mes_usd} unit="USD"/>}
             </div>
+            {/* CLAUDE DETALHADO */}
+            {claudeCredits&&claudeCredits.tem_key&&<div style={{marginTop:16,padding:16,background:"#111116",borderRadius:10,border:"1px solid #1e1e26"}}>
+              <div style={{fontSize:11,fontWeight:600,color:"#818cf8",marginBottom:10}}>Claude API — Detalhes do mês</div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
+                <div><div style={{fontSize:18,fontWeight:700,color:"#eaeaef",fontFamily:"'JetBrains Mono',monospace"}}>{"$"+claudeCredits.gasto_mes_usd.toFixed(4)}</div><div style={{fontSize:9,color:"#4a4a56",marginTop:2}}>Gasto no mês</div></div>
+                <div><div style={{fontSize:18,fontWeight:700,color:"#eaeaef",fontFamily:"'JetBrains Mono',monospace"}}>{claudeCredits.chamadas_mes}</div><div style={{fontSize:9,color:"#4a4a56",marginTop:2}}>Chamadas no mês</div></div>
+                <div><div style={{fontSize:18,fontWeight:700,color:"#eaeaef",fontFamily:"'JetBrains Mono',monospace"}}>{((claudeCredits.tokens_mes_input+claudeCredits.tokens_mes_output)/1000).toFixed(1)+"k"}</div><div style={{fontSize:9,color:"#4a4a56",marginTop:2}}>Tokens totais</div></div>
+                <div><div style={{fontSize:18,fontWeight:700,color:"#eaeaef",fontFamily:"'JetBrains Mono',monospace"}}>{"$"+claudeCredits.gasto_hoje_usd.toFixed(4)}</div><div style={{fontSize:9,color:"#4a4a56",marginTop:2}}>Gasto hoje</div></div>
+              </div>
+              {claudeCredits.ultimos&&claudeCredits.ultimos.length>0&&<div style={{marginTop:12,borderTop:"1px solid #1e1e26",paddingTop:10}}>
+                <div style={{fontSize:9,color:"#3a3a44",marginBottom:6}}>Últimas chamadas</div>
+                {claudeCredits.ultimos.slice(0,5).map(function(u,i){return <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"4px 0",fontSize:10}}>
+                  <span style={{color:"#4a4a56",fontFamily:"'JetBrains Mono',monospace",minWidth:90}}>{fdt(u.data)}</span>
+                  <span style={{color:"#8a8a9a"}}>{u.input_tokens+u.output_tokens} tokens</span>
+                  <span style={{color:"#fbbf24",fontFamily:"'JetBrains Mono',monospace"}}>{"$"+u.custo_usd.toFixed(6)}</span>
+                </div>;})}
+              </div>}
+            </div>}
           </div>}
           <div style={{background:"#14141a",borderRadius:12,border:"1px solid #1e1e26",padding:20}}>
             <div style={{fontSize:11,fontWeight:600,color:"#5a5a66",textTransform:"uppercase",marginBottom:14}}>Por classificação</div>
@@ -300,6 +332,22 @@ export default function App(){
           {selCard.motivos&&selCard.motivos.length>0&&<Sec t="Motivos do score"><div style={{display:"flex",flexDirection:"column",gap:4}}>{selCard.motivos.map(function(m,i){var icon=m.tipo==="POSITIVA"?"+":m.tipo==="UF_INTERESSE"?"•":m.tipo==="TICKET"?"$":m.tipo==="ORGAO_FEDERAL"?"★":"·";var color=m.tipo==="POSITIVA"?"#34d399":m.tipo==="UF_INTERESSE"?"#60a5fa":m.tipo==="TICKET"?"#fbbf24":m.tipo==="ORGAO_FEDERAL"?"#818cf8":"#8a8a9a";return <div key={i} style={{fontSize:11,color:color,padding:"4px 8px",background:"#111116",borderRadius:6}}><span style={{marginRight:6}}>{icon}</span>{m.termo?m.termo+" (+"+m.peso+")":m.tipo+(m.pontos?" (+"+m.pontos+")":"")}</div>;})}</div></Sec>}
           {selCard.link_edital&&<Sec t="Edital"><a href={selCard.link_edital} target="_blank" rel="noopener noreferrer" style={{display:"inline-flex",alignItems:"center",gap:6,padding:"8px 14px",borderRadius:7,border:"1px solid #1e1e26",color:"#818cf8",fontSize:11,fontWeight:600,textDecoration:"none"}}>Abrir no sistema de origem ↗</a></Sec>}
           <Sec t="Objeto completo"><div style={{fontSize:12,color:"#8a8a9a",lineHeight:1.7,background:"#111116",padding:12,borderRadius:8,border:"1px solid #1e1e26"}}>{selCard.objeto}</div></Sec>
+          {/* CLAUDE */}
+          <Sec t="Análise IA (Claude)">
+            <button onClick={function(){analyzeWithClaude(selCard);}} disabled={analyzing} style={{padding:"9px 18px",borderRadius:8,border:"1px solid "+(analyzing?"#1e1e26":"#818cf8"),background:analyzing?"transparent":"#6366f115",color:analyzing?"#52525b":"#818cf8",fontSize:11,fontWeight:600,cursor:analyzing?"default":"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:6,marginBottom:analysis?12:0}}>
+              {analyzing&&<div style={{width:10,height:10,border:"2px solid #27272a",borderTop:"2px solid #818cf8",borderRadius:"50%",animation:"spin .8s linear infinite"}}/>}
+              {analyzing?"Analisando...":"Analisar com Claude"}
+            </button>
+            {analysis&&!analysis.erro&&<div style={{background:"#111116",borderRadius:8,border:"1px solid #1e1e26",padding:14}}>
+              <div style={{fontSize:12,color:"#c4c4ce",lineHeight:1.8,whiteSpace:"pre-wrap"}}>{analysis.texto}</div>
+              <div style={{marginTop:10,display:"flex",gap:12,fontSize:9,color:"#3a3a44"}}>
+                <span>{analysis.tokens.input+analysis.tokens.output} tokens</span>
+                <span style={{color:"#fbbf24"}}>{"$"+analysis.custo_usd.toFixed(6)}</span>
+                <span>Mês: {"$"+analysis.gasto_mes.toFixed(4)+" / $"+analysis.limite_mes}</span>
+              </div>
+            </div>}
+            {analysis&&analysis.erro&&<div style={{background:"#ef444412",borderRadius:8,border:"1px solid #ef444425",padding:12,fontSize:11,color:"#fca5a5"}}>{analysis.erro}</div>}
+          </Sec>
           <div style={{marginTop:16,paddingTop:14,borderTop:"1px solid #1e1e26"}}><button onClick={function(){archive(selCard.id);}} style={{padding:"8px 16px",borderRadius:7,border:"1px solid #ef444430",background:"#ef444410",color:"#f87171",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Arquivar</button></div>
         </div>
       </div>}
