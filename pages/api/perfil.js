@@ -10,9 +10,13 @@ export default async function handler(req, res) {
     var body = req.body;
     var update = {};
     if (body.ticket_minimo !== undefined) update.ticket_minimo = body.ticket_minimo;
+    if (body.valor_maximo !== undefined) update.valor_maximo = body.valor_maximo;
+    if (body.somente_federal !== undefined) update.somente_federal = body.somente_federal;
     if (body.ufs_interesse) update.ufs_interesse = body.ufs_interesse;
     if (body.positivas) update.positivas = body.positivas;
     if (body.negativas) update.negativas = body.negativas;
+    if (body.claude_api_key !== undefined) update.claude_api_key = body.claude_api_key;
+    if (body.claude_creditos_limite !== undefined) update.claude_creditos_limite = body.claude_creditos_limite;
     update.atualizado_em = new Date().toISOString();
     var result = await supabase.from("perfil_empresa").update(update).eq("id", 1);
     if (result.error) return res.status(500).json({ erro: result.error.message });
